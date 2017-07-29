@@ -1,0 +1,50 @@
+#map {
+  height: 100vh;
+}
+
+#routers {
+  height: 100vh;
+  overflow: scroll;
+  padding-top: 5px;
+}
+
+#centreMapBtn {
+  float: right;
+}
+#addNameButton {
+  float: right;
+}
+
+.router-title { 
+  padding: 10px;
+}
+
+.router-title:hover {
+  cursor: 
+}
+
+.router-title:hover:after {
+  content: "Centre map here";
+  font-size: 0.7em;
+  color: grey;
+}
+
+.router { 
+  padding: 10px;
+}
+
+.mac-address-label {
+  padding-top: 5px;
+  text-transform: uppercase;
+}
+
+.vendor-text {
+  font-size: 10px;
+}
+/*page style*/
+
+#mainText {
+  width: 40%;
+  float: left;
+  color: black;
+}

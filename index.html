@@ -1,0 +1,330 @@
+<html>
+  <head>
+    <title>Road Safe</title>
+<meta name="viewport" content="initial-scale=1.0, width=device-width" />
+
+<link rel="stylesheet" type="text/css" href="https://js.cit.api.here.com/v3/3.0/mapsjs-ui.css" />
+<script type="text/javascript" src="https://js.cit.api.here.com/v3/3.0/mapsjs-core.js"></script>
+<script type="text/javascript" src="https://js.cit.api.here.com/v3/3.0/mapsjs-service.js"></script>
+<script type="text/javascript" src="https://js.cit.api.here.com/v3/3.0/mapsjs-ui.js"></script>
+<script type="text/javascript" src="https://js.cit.api.here.com/v3/3.0/mapsjs-mapevents.js"></script>
+
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+<!-- jQuery library -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+<!-- Latest compiled JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <div style="background : black; color: white; font-size: 50px; width: 100%; height: 100; text-align: center;">
+        Road Safe 
+      </div> 
+      <div>
+        <div id="map" style="width: 70%; height: 400px; background: grey; float:left;" />
+      </div>
+      <div id="route" style="width: 30%; float:right; background: lightgrey;">
+        <h1 style="text-align: center;"> Route </h1>
+        <div id="panel"  style="height:280px;"></div>
+        <button onclick="calulateRoute()" style="width: 100%; height: 50px;">Calulate route</button>
+      </div>
+    </div>
+    <link rel = "stylesheet" type = "text/css"href = "style.css" />
+  </body>
+<script type="text/javascript">
+
+
+// variables
+var points = 0;
+var markers = [];
+var routeline = null;
+var routepoints = null; 
+var routePanel = document.getElementById('panel');
+var roadNames = [];
+
+/**
+ * Boilerplate map initialization code starts below:
+ */
+var platform = new H.service.Platform({
+  app_id: 'k28jjs88qwrbSQoJJWNF',
+  app_code: 'mapzItkhYgrSAX3ZOL8wIw',
+  useCIT: true,
+  useHTTPS: true
+});
+var defaultLayers = platform.createDefaultLayers();
+var map = new H.Map(document.getElementById('map'),
+  defaultLayers.normal.map);
+var behavior = new H.mapevents.Behavior(new H.mapevents.MapEvents(map));
+var ui = H.ui.UI.createDefault(map, defaultLayers);
+
+function centerMapOnChristchruch(map){
+  map.setCenter({lat:-43.530175, lng:172.633319});
+  map.setZoom(14);
+}
+
+function setUpClickListener(map) {
+  map.addEventListener('tap', function (evt) {
+    if (points == 0) {
+      points = 1;
+      var coord = map.screenToGeo(evt.currentPointer.viewportX,evt.currentPointer.viewportY);
+      addDraggableMarker(map,behavior, coord.lat.toFixed(4), coord.lng.toFixed(4));
+      
+    }
+    else if (points == 1){
+      points = 2;
+      var coord = map.screenToGeo(evt.currentPointer.viewportX,evt.currentPointer.viewportY);
+      addDraggableMarker(map,behavior, coord.lat.toFixed(4), coord.lng.toFixed(4));
+    }
+  });
+}
+
+function addDraggableMarker(map, behavior, lat, long){
+  var marker = new H.map.Marker({lat: lat, lng: long});
+  // Ensure that the marker can receive drag events
+  marker.draggable = true;
+
+  map.addObject(marker);
+  markers.push(marker);
+  // disable the default draggability of the underlying map
+  // when starting to drag a marker object:
+  map.addEventListener('dragstart', function(ev) {
+    var target = ev.target;
+    if (target instanceof H.map.Marker) {
+      behavior.disable();
+    }
+  }, false);
+
+
+  // re-enable the default draggability of the underlying map
+  // when dragging has completed
+  map.addEventListener('dragend', function(ev) {
+    var target = ev.target;
+    if (target instanceof mapsjs.map.Marker) {
+      behavior.enable();
+    }
+  }, false);
+
+  // Listen to the drag event and move the position of the marker
+  // as necessary
+   map.addEventListener('drag', function(ev) {
+    var target = ev.target,
+        pointer = ev.currentPointer;
+    if (target instanceof mapsjs.map.Marker) {
+      target.setPosition(map.screenToGeo(pointer.viewportX, pointer.viewportY));
+    }
+  }, false);
+}
+
+function calulateRoute () {
+  if (points < 2) {
+    alert("you have not selected a route") 
+  } else {
+    var start =  markers[0].getPosition().lat + "," + markers[0].getPosition().lng
+    var end =  markers[1].getPosition().lat + "," + markers[1].getPosition().lng
+    calculateRouteFromAtoB(platform, start, end);
+  }
+}
+
+//route
+function calculateRouteFromAtoB (platform, start, end) {
+  console.log(start);
+  console.log(end);
+  var router = platform.getRoutingService(),
+    routeRequestParams = {
+      mode: 'fastest;car',
+      representation: 'display',
+      routeattributes : 'waypoints,summary,shape,legs',
+      maneuverattributes: 'direction,action',
+      waypoint0: start, // Brandenburg Gate
+      waypoint1: end  // Friedrichstraße Railway Station
+    };
+
+
+  router.calculateRoute(
+    routeRequestParams,
+    onSuccess,
+    onError
+  );
+}
+
+function onSuccess(result) {
+  var route = result.response.route[0];
+  addRouteShapeToMap(route);
+  addManueversToPanel(route);
+  addManueversToMap(route);
+}
+
+function addManueversToMap(route){
+  var svgMarkup = '<svg width="18" height="18" ' +
+    'xmlns="http://www.w3.org/2000/svg">' +
+    '<circle cx="8" cy="8" r="8" ' +
+      'fill="#1b468d" stroke="white" stroke-width="1"  />' +
+    '</svg>',
+    dotIcon = new H.map.Icon(svgMarkup, {anchor: {x:8, y:8}}),
+    group = new  H.map.Group(),
+    i,
+    j;
+
+  // Add a marker for each maneuver
+  for (i = 0;  i < route.leg.length; i += 1) {
+    for (j = 0;  j < route.leg[i].maneuver.length; j += 1) {
+      // Get the next maneuver.
+      maneuver = route.leg[i].maneuver[j];
+      // Add a marker to the maneuvers group
+      var marker =  new H.map.Marker({
+        lat: maneuver.position.latitude,
+        lng: maneuver.position.longitude} ,
+        {icon: dotIcon});
+      marker.instruction = maneuver.instruction;
+      group.addObject(marker);
+    }
+  }
+
+  group.addEventListener('tap', function (evt) {
+    map.setCenter(evt.target.getPosition());
+    openBubble(
+       evt.target.getPosition(), evt.target.instruction);
+  }, false);
+
+  // Add the maneuvers group to the map
+  map.addObject(group);
+}
+
+var bubble;
+
+function openBubble(position, text){
+ if(!bubble){
+    bubble =  new H.ui.InfoBubble(
+      position,
+      // The FO property holds the province name.
+      {content: text});
+    ui.addBubble(bubble);
+  } else {
+    bubble.setPosition(position);
+    bubble.setContent(text + position.lat);
+    console.log(position);
+    bubble.open();
+  }
+}
+
+function onError(error) {
+  alert('Ooops!');
+}
+
+function addRouteShapeToMap(route){
+  if (routeline != null) {
+    map.removeObject(routeline);
+  }
+
+  var strip = new H.geo.Strip(),
+    routeShape = route.shape,
+    polyline;
+
+  routeShape.forEach(function(point) {
+    var parts = point.split(',');
+    strip.pushLatLngAlt(parts[0], parts[1]);
+  });
+
+  polyline = new H.map.Polyline(strip, {
+    style: {
+      lineWidth: 4,
+      strokeColor: 'rgba(0, 128, 255, 0.7)'
+    }
+  });
+  // Add the polyline to the map
+  map.addObject(polyline);
+  // And zoom to its bounding rectangle
+  map.setViewBounds(polyline.getBounds(), true);
+  routeline = polyline;
+}
+
+function findDeathRate() {
+  return 1;
+}
+
+function addWaypointsToPanel(waypoints){
+
+
+
+  var nodeH3 = document.createElement('h3'),
+    waypointLabels = [],
+    i;
+
+
+   for (i = 0;  i < waypoints.length; i += 1) {
+    waypointLabels.push(waypoints[i].label)
+   }
+
+   nodeH3.textContent = waypointLabels.join(' - ');
+
+  routeInstructionsContainer.innerHTML = '';
+  routeInstructionsContainer.appendChild(nodeH3);
+}
+
+function addManueversToPanel(route){
+  roadNames = [];
+  console.log(route);
+  while (routePanel.firstChild) {
+    routePanel.removeChild(routePanel.firstChild);
+  }
+  var nodeOL = document.createElement('ol'),
+    i,
+    j;
+
+  nodeOL.style.fontSize = 'small';
+  nodeOL.style.marginLeft ='5%';
+  nodeOL.style.marginRight ='5%';
+  nodeOL.className = 'directions';
+
+     // Add a marker for each maneuver
+  for (i = 0;  i < route.leg.length; i += 1) {
+    for (j = 0;  j < route.leg[i].maneuver.length; j += 1) {
+      // Get the next maneuver.
+      maneuver = route.leg[i].maneuver[j];
+
+      var li = document.createElement('li'),
+        spanInstruction = document.createElement('span');
+
+      spanInstruction.innerHTML = maneuver.instruction;
+      li.appendChild(spanInstruction);
+      
+      //getting road name
+      maneuver = route.leg[i].maneuver[j].instruction;
+      var div = document.createElement('div');
+      div.innerHTML = maneuver;
+      var roadName = div.querySelectorAll('.street, .toward_street, .next-street')[0].innerText
+      roadNames.push(roadName);
+      li.setAttribute("id", roadName);
+      li.setAttribute("style", "background-color:red;");
+
+      nodeOL.appendChild(li);
+      if (i != route.leg[i].maneuver[j].length - 1){
+        console.log(points);
+        var points = [route.leg[i].maneuver[j].position, route.leg[i].maneuver[j + 1].position]
+        console.log(points);
+        addline(points, roadName);
+    }
+    }
+  }
+  addline([{lat:-43.530175, lng:172.633319}, {lat:-43.540175, lng:172.633319}], "sam");
+  routePanel.appendChild(nodeOL);
+}
+
+function addline(points, roadName){
+    color == "red"
+    var strip = new H.geo.Strip();
+    points.forEach(function(point) {
+    strip.pushPoint(point);
+  });
+  var polyline = new H.map.Polyline(strip, { style: { lineWidth: 5, strokeColor:color}});
+  map.addObject(polyline);
+  map.setViewBounds(polyline.getBounds());
+}
+
+setUpClickListener(map);
+centerMapOnChristchruch(map);
+  </script>
+</html>

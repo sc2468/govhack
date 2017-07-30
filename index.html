@@ -34,6 +34,7 @@
     </div>
     <link rel = "stylesheet" type = "text/css"href = "style.css" />
   </body>
+<script type="text/javascript" src="https://liberdata.tech/liberdata.js"></script>
 <script type="text/javascript">
 
 
@@ -41,7 +42,8 @@
 var points = 0;
 var markers = [];
 var routeline = null;
-var routepoints = null; 
+var routepoints = []; 
+var turns = null;
 var routePanel = document.getElementById('panel');
 var roadNames = [];
 
@@ -152,12 +154,21 @@ function calculateRouteFromAtoB (platform, start, end) {
 
 function onSuccess(result) {
   var route = result.response.route[0];
-  addRouteShapeToMap(route);
   addManueversToPanel(route);
   addManueversToMap(route);
+  addRouteShapeToMap(route);
 }
 
 function addManueversToMap(route){
+  /*for (x = 0; x < turns.length; x += 1) {
+    console.log('remove turn');
+    map.removeObject(turns[x]);
+  }
+  turns = [];*/
+  if (turns != null) {
+    map.removeObject(turns);
+    turns == null;
+  }
   var svgMarkup = '<svg width="18" height="18" ' +
     'xmlns="http://www.w3.org/2000/svg">' +
     '<circle cx="8" cy="8" r="8" ' +
@@ -191,6 +202,7 @@ function addManueversToMap(route){
 
   // Add the maneuvers group to the map
   map.addObject(group);
+  turns = group;
 }
 
 var bubble;
@@ -204,8 +216,7 @@ function openBubble(position, text){
     ui.addBubble(bubble);
   } else {
     bubble.setPosition(position);
-    bubble.setContent(text + position.lat);
-    console.log(position);
+    bubble.setContent(text);
     bubble.open();
   }
 }
@@ -239,33 +250,38 @@ function addRouteShapeToMap(route){
   // And zoom to its bounding rectangle
   map.setViewBounds(polyline.getBounds(), true);
   routeline = polyline;
+  map.removeObject(polyline);
 }
 
-function findDeathRate() {
-  return 1;
+function findCrashRate(roadName) {
+  /*liberdata()
+  .load_csv("https://www.nzta.govt.nz/assets/Safety/Disaggregated-crash-data.csv")
+  .filter("CRASH_LOCN1", "==", roadName)
+  .or("CRASH_LOCN2", "==", roadName)
+  .count()
+  .execute()
+  .then(function(resp) {console.log(resp)})*/
+  return Math.floor(Math.random() * 5);
 }
 
 function addWaypointsToPanel(waypoints){
-
-
-
   var nodeH3 = document.createElement('h3'),
     waypointLabels = [],
     i;
-
-
    for (i = 0;  i < waypoints.length; i += 1) {
     waypointLabels.push(waypoints[i].label)
    }
-
    nodeH3.textContent = waypointLabels.join(' - ');
-
   routeInstructionsContainer.innerHTML = '';
   routeInstructionsContainer.appendChild(nodeH3);
 }
 
 function addManueversToPanel(route){
   roadNames = [];
+  for (x = 0; x < routepoints.length; x += 1) {
+    map.removeObject(routepoints[x]);
+  }
+  routepoints = [];
   console.log(route);
   while (routePanel.firstChild) {
     routePanel.removeChild(routePanel.firstChild);
@@ -298,30 +314,74 @@ function addManueversToPanel(route){
       var roadName = div.querySelectorAll('.street, .toward_street, .next-street')[0].innerText
       roadNames.push(roadName);
       li.setAttribute("id", roadName);
-      li.setAttribute("style", "background-color:red;");
+      li.setAttribute("style", "padding: 0px; margin:0px; background-color: green");
+      nodeOL.setAttribute("style", "padding: 0px; margin: 5px; list-style: decimal inside none; margin:0px;");
 
       nodeOL.appendChild(li);
-      if (i != route.leg[i].maneuver[j].length - 1){
-        console.log(points);
-        var points = [route.leg[i].maneuver[j].position, route.leg[i].maneuver[j + 1].position]
-        console.log(points);
-        addline(points, roadName);
-    }
     }
   }
-  addline([{lat:-43.530175, lng:172.633319}, {lat:-43.540175, lng:172.633319}], "sam");
   routePanel.appendChild(nodeOL);
+  plotRoute(route, roadNames);
+}
+
+function plotRoute(route, names) {
+  var stages = []
+  for (i = 0; i < route.leg[0].maneuver.length - 1; i+= 1) {
+    var point1 = route.leg[0].maneuver[i].position;
+    var point2 = route.leg[0].maneuver[i + 1].position;
+    console.log(point1);
+    console.log(point2);
+    var points = [{lat: point1.latitude, lng: point1.longitude}, {lat: point2.latitude, lng: point2.longitude}];
+    //stages.push([route.leg[0].maneuver[i].position[0],[route.leg[0].maneuver[i + 1].position][0]]);
+    addline(points, names[i]);
+  }
+  /*for (j = 0; j < stages.length; i+= 1) {
+    var start = false;
+    var shape = [];
+    for (g = 0; g < route.shape.length; g+= 1) {
+      var parts = route.shape[g].split(',');
+      if (start = false) {
+        if(stages[j][0].latitude == parts[0] & stages[j][0].longitude == parts[1]){
+          console.log("start");
+          start = true;
+          shape.push(route.shape[g]);
+        }
+      } else {
+        if (stages[j][1].latitude == parts[0] & stages[j][1].longitude == parts[1]) {
+          shape.push(route.shape[g]);
+              console.log("end");
+          break;
+        }
+      }
+    }
+    console.log("shape");
+    console.log(shape);
+  }*/
 }
 
 function addline(points, roadName){
-    color == "red"
-    var strip = new H.geo.Strip();
-    points.forEach(function(point) {
+  var color = "green"
+  var crashRate = findCrashRate(roadName);
+  console.log(points);
+  console.log(roadName);
+  console.log(roadName);
+  if (crashRate == 0) {
+    color = "green"
+  } else if (crashRate <= 2) {
+    color = "orange"
+  } else {
+    color = "red"
+  }
+  document.getElementById(roadName).setAttribute("style", "background-color:" + color + ";");
+  
+  var strip = new H.geo.Strip();
+  points.forEach(function(point) {
     strip.pushPoint(point);
   });
   var polyline = new H.map.Polyline(strip, { style: { lineWidth: 5, strokeColor:color}});
   map.addObject(polyline);
   map.setViewBounds(polyline.getBounds());
+  routepoints.push(polyline);
 }
 
 setUpClickListener(map);
